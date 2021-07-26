@@ -1,0 +1,251 @@
+{
+    "artifact": {
+        "name": "cdap-data-pipeline",
+        "version": "6.4.1",
+        "scope": "SYSTEM"
+    },
+    "description": "Data Pipeline Application",
+    "name": "SF_MultiObject_Incremental_load_v5",
+    "config": {
+        "resources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "driverResources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "connections": [
+            {
+                "from": "Read Salesforce",
+                "to": "Update BQ"
+            },
+            {
+                "from": "Update BQ",
+                "to": "Update Checkpoint"
+            },
+            {
+                "from": "Update Checkpoint",
+                "to": "End Timestamp"
+            },
+            {
+                "from": "Read Checkpoint",
+                "to": "Read Salesforce"
+            },
+            {
+                "from": "Init Timestamp",
+                "to": "Read Checkpoint"
+            }
+        ],
+        "comments": [],
+        "postActions": [],
+        "properties": {},
+        "processTimingEnabled": true,
+        "stageLoggingEnabled": false,
+        "stages": [
+            {
+                "name": "Read Salesforce",
+                "plugin": {
+                    "name": "SalesforceMultiObjects",
+                    "type": "batchsource",
+                    "label": "Read Salesforce",
+                    "artifact": {
+                        "name": "salesforce-plugins",
+                        "version": "1.3.9",
+                        "scope": "USER"
+                    },
+                    "properties": {
+                        "referenceName": "SalesforceMultiObjects",
+                        "username": "<CHANGEME>",
+                        "password": "<CHANGEME>",
+                        "consumerKey": "<CHANGEME>",
+                        "consumerSecret": "<CHANGEME>",
+                        "loginUrl": "https://<CHANGEME>.salesforce.com/services/oauth2/token",
+                        "whiteList": "Contact,Account,Lead",
+                        "datetimeAfter": "${last_completion}",
+                        "datetimeBefore": "${current_max}"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": ""
+                    }
+                ],
+                "id": "Read-Salesforce"
+            },
+            {
+                "name": "Update BQ",
+                "plugin": {
+                    "name": "BigQueryMultiTable",
+                    "type": "batchsink",
+                    "label": "Update BQ",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.17.3",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "referenceName": "BigQueryMultiTable",
+                        "project": "auto-detect",
+                        "dataset": "from_salesforce_cdf_staging",
+                        "truncateTable": "false",
+                        "serviceAccountType": "filePath",
+                        "serviceFilePath": "auto-detect",
+                        "allowFlexibleSchema": "off",
+                        "allowSchemaRelaxation": "true",
+                        "location": "US"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": ""
+                    }
+                ],
+                "inputSchema": [
+                    {
+                        "name": "Read Salesforce",
+                        "schema": ""
+                    }
+                ],
+                "id": "Update-BQ"
+            },
+            {
+                "name": "Update Checkpoint",
+                "plugin": {
+                    "name": "BigQueryExecute",
+                    "type": "action",
+                    "label": "Update Checkpoint",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.17.3",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "project": "auto-detect",
+                        "sql": "update `from_salesforce_cdf_staging.sf_checkpoint` set last_completion = current_max where jobid = 'salesforce'",
+                        "dialect": "standard",
+                        "mode": "batch",
+                        "useCache": "false",
+                        "location": "US",
+                        "rowAsArguments": "false",
+                        "serviceAccountType": "filePath",
+                        "serviceFilePath": "auto-detect"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": ""
+                    }
+                ],
+                "id": "Update-Checkpoint"
+            },
+            {
+                "name": "End Timestamp",
+                "plugin": {
+                    "name": "BigQueryExecute",
+                    "type": "action",
+                    "label": "End Timestamp",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.17.3",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "project": "auto-detect",
+                        "sql": "update `from_salesforce_cdf_staging.sf_checkpoint` set current_max = NULL where jobid = 'salesforce'",
+                        "dialect": "standard",
+                        "mode": "batch",
+                        "useCache": "false",
+                        "location": "US",
+                        "rowAsArguments": "false",
+                        "serviceAccountType": "filePath",
+                        "serviceFilePath": "auto-detect"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": ""
+                    }
+                ],
+                "id": "End-Timestamp"
+            },
+            {
+                "name": "Read Checkpoint",
+                "plugin": {
+                    "name": "BigQueryArgumentSetter",
+                    "type": "action",
+                    "label": "Read Checkpoint",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.17.3",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "project": "auto-detect",
+                        "dataset": "from_salesforce_cdf_staging",
+                        "table": "sf_checkpoint",
+                        "argumentSelectionConditions": "jobid=salesforce",
+                        "argumentsColumns": "last_completion,current_max",
+                        "serviceAccountType": "filePath",
+                        "serviceFilePath": "auto-detect"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": ""
+                    }
+                ],
+                "id": "Read-Checkpoint"
+            },
+            {
+                "name": "Init Timestamp",
+                "plugin": {
+                    "name": "BigQueryExecute",
+                    "type": "action",
+                    "label": "Init Timestamp",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.17.3",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "project": "auto-detect",
+                        "sql": "update `from_salesforce_cdf_staging.sf_checkpoint` set current_max = CAST(FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%SZ\", current_timestamp()) as STRING)\nwhere jobid = 'salesforce'",
+                        "dialect": "standard",
+                        "mode": "batch",
+                        "useCache": "false",
+                        "location": "US",
+                        "rowAsArguments": "false",
+                        "serviceAccountType": "filePath",
+                        "serviceFilePath": "auto-detect"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": ""
+                    }
+                ],
+                "id": "Init-Timestamp"
+            }
+        ],
+        "schedule": "0 * * * *",
+        "engine": "spark",
+        "numOfRecordsPreview": 100,
+        "description": "Data Pipeline Application",
+        "maxConcurrentRuns": 1
+    },
+    "id": "e75e8a80-a624-404e-b2a8-662fab1c115d",
+    "createdTimeMillis": 1627336973095,
+    "updatedTimeMillis": 1627338130713,
+    "configHash": -1635446669,
+    "previousHash": "",
+    "revision": 0,
+    "$promise": {},
+    "$resolved": true
+}
