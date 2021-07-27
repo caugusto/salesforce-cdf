@@ -1,0 +1,118 @@
+{
+    "name": "SF_Streaming_Insert_Updates_Lead",
+    "description": "Data Streams Application",
+    "artifact": {
+        "name": "cdap-data-streams",
+        "version": "6.4.1",
+        "scope": "SYSTEM"
+    },
+    "config": {
+        "resources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "driverResources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "connections": [
+            {
+                "from": "Salesforce Streaming",
+                "to": "Write to BigQuery"
+            }
+        ],
+        "comments": [],
+        "postActions": [],
+        "properties": {
+            "system.spark.spark.streaming.backpressure.enabled": "true"
+        },
+        "processTimingEnabled": true,
+        "stageLoggingEnabled": false,
+        "stages": [
+            {
+                "name": "Salesforce Streaming",
+                "plugin": {
+                    "name": "Salesforce",
+                    "type": "streamingsource",
+                    "label": "Salesforce Streaming",
+                    "artifact": {
+                        "name": "salesforce-plugins",
+                        "version": "1.3.9",
+                        "scope": "USER"
+                    },
+                    "properties": {
+                        "referenceName": "SFStreaming",
+                        "username": "<CHANGEME>",
+                        "password": "<CHANGEME>",
+                        "consumerKey": "<CHANGEME>",
+                        "consumerSecret": "<CHANGEME>",
+                        "loginUrl": "https://<CHANGEME>.salesforce.com/services/oauth2/token",
+                        "pushTopicName": "CDFLeadUpdates",
+                        "pushTopicQuery": "SELECT Id, IsDeleted, MasterRecordId, LastName, FirstName, Salutation, Name, Title, Company, Street, City, State, PostalCode, Country, Phone, MobilePhone, Fax, Email, Website, IsUnreadByOwner, CreatedDate, CreatedById, LastModifiedDate, LastModifiedById, SystemModstamp, LastActivityDate, LastViewedDate, LastReferencedDate, Status FROM Lead",
+                        "pushTopicNotifyCreate": "Enabled",
+                        "pushTopicNotifyUpdate": "Enabled",
+                        "pushTopicNotifyDelete": "Disabled",
+                        "pushTopicNotifyForFields": "All"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": "{\"type\":\"record\",\"name\":\"output\",\"fields\":[{\"name\":\"Id\",\"type\":\"string\"},{\"name\":\"IsDeleted\",\"type\":\"boolean\"},{\"name\":\"MasterRecordId\",\"type\":[\"string\",\"null\"]},{\"name\":\"LastName\",\"type\":\"string\"},{\"name\":\"FirstName\",\"type\":[\"string\",\"null\"]},{\"name\":\"Salutation\",\"type\":[\"string\",\"null\"]},{\"name\":\"Name\",\"type\":\"string\"},{\"name\":\"Title\",\"type\":[\"string\",\"null\"]},{\"name\":\"Company\",\"type\":\"string\"},{\"name\":\"Street\",\"type\":[\"string\",\"null\"]},{\"name\":\"City\",\"type\":[\"string\",\"null\"]},{\"name\":\"State\",\"type\":[\"string\",\"null\"]},{\"name\":\"PostalCode\",\"type\":[\"string\",\"null\"]},{\"name\":\"Country\",\"type\":[\"string\",\"null\"]},{\"name\":\"Phone\",\"type\":[\"string\",\"null\"]},{\"name\":\"MobilePhone\",\"type\":[\"string\",\"null\"]},{\"name\":\"Fax\",\"type\":[\"string\",\"null\"]},{\"name\":\"Email\",\"type\":[\"string\",\"null\"]},{\"name\":\"Website\",\"type\":[\"string\",\"null\"]},{\"name\":\"IsUnreadByOwner\",\"type\":\"boolean\"},{\"name\":\"CreatedDate\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}},{\"name\":\"CreatedById\",\"type\":\"string\"},{\"name\":\"LastModifiedDate\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}},{\"name\":\"LastModifiedById\",\"type\":\"string\"},{\"name\":\"SystemModstamp\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}},{\"name\":\"LastActivityDate\",\"type\":[{\"type\":\"int\",\"logicalType\":\"date\"},\"null\"]},{\"name\":\"LastViewedDate\",\"type\":[{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"null\"]},{\"name\":\"LastReferencedDate\",\"type\":[{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"null\"]},{\"name\":\"Status\",\"type\":\"string\"}]}"
+                    }
+                ],
+                "id": "Salesforce-Streaming",
+                "type": "streamingsource",
+                "label": "Salesforce Streaming",
+                "icon": "fa-plug"
+            },
+            {
+                "name": "Write to BigQuery",
+                "plugin": {
+                    "name": "BigQueryTable",
+                    "type": "batchsink",
+                    "label": "Write to BigQuery",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.17.3",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "referenceName": "BQ",
+                        "project": "auto-detect",
+                        "dataset": "from_salesforce_cdf_staging",
+                        "table": "LeadStreaming",
+                        "serviceAccountType": "filePath",
+                        "serviceFilePath": "auto-detect",
+                        "operation": "insert",
+                        "truncateTable": "false",
+                        "allowSchemaRelaxation": "true",
+                        "location": "US",
+                        "createPartitionedTable": "true",
+                        "partitioningType": "TIME",
+                        "partitionFilterRequired": "false"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": ""
+                    }
+                ],
+                "inputSchema": [],
+                "id": "Write-to-BigQuery",
+                "type": "batchsink",
+                "label": "Write to BigQuery",
+                "icon": "fa-plug"
+            }
+        ],
+        "batchInterval": "10s",
+        "clientResources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "disableCheckpoints": false,
+        "checkpointDir": "gs://df-16152333346454758434-3jkumxxjuui6xbjhaizbbqaaaa/checkpoints/",
+        "stopGracefully": true
+    }
+}
